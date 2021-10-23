@@ -1,36 +1,57 @@
 package main
 
 import (
-	"github.com/gok8s/kube-eventalert/pkg/config"
-	"github.com/gok8s/kube-eventalert/pkg/controller"
-	"github.com/gok8s/kube-eventalert/pkg/store"
-	api_v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	"context"
+	"fmt"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
+	"t/utils"
 )
 
 func main() {
-	k8sConfig, err := clientcmd.BuildConfigFromFlags("", "/root/my-sync-job/config/k8s-config")
+	err := utils.InitClient()
+	if err != nil {
+		fmt.Println("init redis failed..")
+	}
+
+	k8sConfig, err := clientcmd.BuildConfigFromFlags("", "k8s-config")
 	if err != nil {
 		log.Printf("K8sUtil.BuildConfigFromFlags: %s\n", err)
 		return
 	}
-	var config config.Config
 	k8sClient, err := kubernetes.NewForConfig(k8sConfig)
 	if err != nil {
 		log.Printf("K8sUtil.NewForConfig: %s\n", err)
 		return
 	}
-	lw := cache.NewListWatchFromClient(
-		k8sClient.CoreV1().RESTClient(), // 客户端
-		"events",                         // 被监控资源类型
-		"",                               // 被监控命名空间
-		fields.Everything())
-	informer := cache.NewSharedIndexInformer(lw, &api_v1.Event{}, 0, cache.Indexers{})
-	c := controller.NewResourceController(k8sClient, informer, config)
-	c.MQClient, err = store.NewRabbitMQClient(config)
+	namespace := "hpa"
+	w, _ := k8sClient.CoreV1().Events(namespace).Watch(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("create watch error, error is %s, program exit!", err.Error())
+		panic(err)
+	}
+	redisClient := utils.Rdb
+	var message string
+	var key string = "event:warning"
+	for {
+		select {
+		case <-w.ResultChan():
+			www := <-w.ResultChan()
+			if www.Object != nil {
+				t := www.Object.(*v1.Event)
+				fmt.Println(t.Type, t.Name, t.EventTime, t.Reason)
+				if t.Type == "Warning" {
+					fmt.Println("===出现了错误事件===")
+					//发送消息给消息队列
+					message = fmt.Sprintf("%s:%s:%s", t.Type, t.Name, t.Reason)
+					//Warning nginx-6d65fc45c6-thvsl.16b0a0d65e45a10d 0001-01-01 00:00:00 +0000 UTC Failed
+					redisClient.LPush(key, message)
+				}
+			}
 
+		}
+	}
 }
