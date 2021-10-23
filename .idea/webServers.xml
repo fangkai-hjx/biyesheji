@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="7c1d7ffe-b482-47b7-9fcc-a3b125339da9" name="node1">
+        <fileTransfer rootFolder="/root/my-sync-job" accessType="SFTP" host="202.38.247.217" port="22" sshConfigId="725c0295-3174-4a38-bb2b-8572fd0f4cde" sshConfig="root@202.38.247.217:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
