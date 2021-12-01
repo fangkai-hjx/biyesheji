@@ -8,11 +8,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
-	"t/utils"
+	utils2 "t/back/utils"
 )
 
 func main() {
-	err := utils.InitClient()
+	err := utils2.InitClient()
 	if err != nil {
 		fmt.Println("init redis failed..")
 	}
@@ -33,7 +33,7 @@ func main() {
 		fmt.Printf("create watch error, error is %s, program exit!", err.Error())
 		panic(err)
 	}
-	redisClient := utils.Rdb
+	redisClient := utils2.Rdb
 	var message string
 	var key string = "event:warning"
 	for {
