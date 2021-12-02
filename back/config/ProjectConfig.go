@@ -23,7 +23,7 @@ func init()  {
 }
 func ParseConfig() (*projectConfig, error) {
 
-	file, err := os.Open("./back/config/project.json")
+	file, err := os.Open("./config/project.json")
 	if err != nil {
 		panic(err)
 	}
