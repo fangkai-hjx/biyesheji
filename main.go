@@ -8,7 +8,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
-	utils2 "t/utils"
+	utils2 "t/back/utils"
 )
 
 func main() {

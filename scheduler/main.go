@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"strings"
-	"t/utils"
+	"t/back/utils"
 )
 
 func main() {
