@@ -3,12 +3,12 @@ package middleware
 import (
 	"errors"
 	"fmt"
-	"t/back/constant"
-	"t/back/utils"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"strings"
+	"t/back/constant"
+	"t/utils"
 )
 var (
 	TokenExpired     = errors.New("Token is expired")

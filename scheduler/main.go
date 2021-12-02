@@ -8,11 +8,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
-	utils2 "t/utils"
+	"strings"
+	"t/utils"
 )
 
 func main() {
-	err := utils2.InitClient()
+	err := utils.InitClient()
 	if err != nil {
 		fmt.Println("init redis failed..")
 	}
@@ -33,25 +34,31 @@ func main() {
 		fmt.Printf("create watch error, error is %s, program exit!", err.Error())
 		panic(err)
 	}
-	redisClient := utils2.Rdb
-	var message string
+	redisClient := utils.Rdb
 	var key string = "event:warning"
 	for {
 		select {
 		case <-w.ResultChan():
 			www := <-w.ResultChan()
 			if www.Object != nil {
+				//panic: interface conversion: runtime.Object is *v1.Status, not *v1.Even
 				t := www.Object.(*v1.Event)
-				fmt.Println(t.Type, t.Name, t.EventTime, t.Reason)
+				//fmt.Println(t.Type, t.Name, t.EventTime, t.Reason)
+				//	////Warning nginx-6d65fc45c6-thvsl.16b0a0d65e45a10d 0001-01-01 00:00:00 +0000 UTC Failed
 				if t.Type == "Warning" {
-					fmt.Println("===出现了错误事件===")
-					//发送消息给消息队列
-					message = fmt.Sprintf("%s:%s:%s", t.Type, t.Name, t.Reason)
-					//Warning nginx-6d65fc45c6-thvsl.16b0a0d65e45a10d 0001-01-01 00:00:00 +0000 UTC Failed
-					redisClient.LPush(key, message)
+					var str = strings.Split(t.Name, ".")[0]
+					name := GetHostName(k8sClient, namespace, str)
+					fmt.Printf("node[%s] happen warning event[%s]\n",name,t.Reason)
+					////发送消息给消息队列
+					redisClient.LPush(key, name)
 				}
 			}
 
 		}
 	}
+}
+func GetHostName(k8sClient *kubernetes.Clientset, namespace, name string) string {
+	fmt.Println(name)
+	w, _ := k8sClient.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	return w.Spec.NodeName
 }
