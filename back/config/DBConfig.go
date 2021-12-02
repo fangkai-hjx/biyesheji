@@ -20,7 +20,7 @@ type dbConfig struct {
 
 var (
 	DBConfig   *dbConfig
-	configPath = "./back/config/db.json"
+	configPath = "./config/db.json"
 )
 
 func init() {
