@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/TimeBye/go-harbor/pkg/model"
 	"github.com/gin-gonic/gin"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"net/http"
+	"strings"
 	"t/back/middleware"
 	"t/back/utils"
 )
@@ -21,7 +23,70 @@ func main() {
 			"dadsa": "dadad",
 		})
 	})
-	r.GET("/service/all")
+	// 服务发布
+	// 镜像管理
+	// 查询所有的项目
+	r.GET("/image/project/all", func(c *gin.Context) {
+		query := model.Query{}
+		HarborClient := utils.GetHarborClient()
+		projects, err := HarborClient.V2.List(&query)
+		if err != nil {
+			return
+		}
+		res := make([]HarborRepository, 0)
+		for _, project := range *projects {
+			var harborRepository = HarborRepository{
+				ProjectId:   project.ProjectID,
+				ProjectName: project.Name,
+				CreateTime:  project.CreationTime.String(),
+				UpdateTime:  project.UpdateTime.String(),
+				OwnerName:   project.OwnerName,
+				RepoCount:   project.RepoCount,
+				Images:      nil,
+			}
+			//加上镜像
+			images, err := HarborClient.V2.Repositories(project.Name).List(&query)
+			if err != nil {
+
+			}
+			imageList := make([]Image, 0)
+			for _, image := range *images {
+				var i = Image{
+					PullCount:    image.PullCount,
+					ImageName:    image.Name,
+					UpdateTime:   image.UpdateTime.String(),
+					CreateTime:   image.CreationTime.String(),
+					ProjectId:    image.ProjectID,
+					Description:  image.Description,
+					RepositoryId: image.RepositoryID,
+				}
+				tags, _ := GetSomeImage(strings.Split(i.ImageName, "/")[0], strings.Split(i.ImageName, "/")[1])
+				i.Tag = tags
+				imageList = append(imageList, i)
+			}
+			harborRepository.Images = imageList
+			res = append(res, harborRepository)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "查询服务成功",
+			"data":    res,
+		})
+	})
+	// 查询项目下所有的镜像
+	//r.GET("/image/project/images", func(c *gin.Context) {
+	//	harborClient := utils.GetHarborClient()
+	//	if harborClient == nil {
+	//
+	//		fmt.Println("harborClient is nil")
+	//		return
+	//	}
+	//	query := model.Query{}
+	//	repositories, _ := harborClient.V2.Repositories("public").List(&query)
+	//	for _, p := range *repositories {
+	//		p.
+	//	}
+	//})
+
 	// 服务发布
 	// 工作空间 管理
 	// 查询所有的工作空间 http://localhost:8080/pub_service/workspace/all
@@ -134,8 +199,7 @@ func main() {
 			result = append(result, s)
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"message":"查询服务成功",
-
+			"message": "查询服务成功",
 		})
 	})
 	r.GET("/pub_service/:namespace/:svc_name")
@@ -179,4 +243,40 @@ func generateToken(username, password string) (string, error) {
 type Namespace struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
+}
+type RepositoryAddr struct {
+	ImageName   string `json:"imageName"`
+	ProjectName string `json:"projectName"`
+}
+type HarborRepository struct {
+	ProjectId   int64  `json:"project_id"`
+	ProjectName string `json:"project_name"`
+	CreateTime  string `json:"creation_time"`
+	UpdateTime  string `json:"create_time"`
+	OwnerName   string `json:"owner_name"`
+	RepoCount   int64  `json:repo_count`
+	Images      []Image
+}
+
+//查询某个镜像的Tag
+func GetSomeImage(projectName, imageName string) (res []string, err error) {
+	var query = model.Query{}
+	tags, _ := utils.HarborClient.V2.Repositories(projectName).Artifacts(imageName).List(&query)
+	for _, tag := range *tags {
+		for _, tag := range tag.Tags {
+			res = append(res, tag.Name)
+		}
+	}
+	return res, err
+}
+
+type Image struct {
+	ImageName    string   `json:"image_name"`
+	UpdateTime   string   `json:"update_time"`
+	CreateTime   string   `json:"create_time"`
+	ProjectId    int64    `json:"project_id"`
+	Description  string   `json:"description"`
+	RepositoryId int64    `json:"repository_id"`
+	PullCount    int64    `json:"pull_count"`
+	Tag          []string `json:"tag"`
 }

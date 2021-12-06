@@ -3,14 +3,13 @@ module t
 go 1.14
 
 require (
-	github.com/afocus/captcha v0.0.0-20191010092841-4bd1f21c8868
+	github.com/TimeBye/go-harbor v0.0.0-20210528022852-7a6811422e3c
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/jmoiron/sqlx v1.3.4
