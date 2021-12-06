@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"net/http"
@@ -35,10 +36,13 @@ func main() {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println("================")
-		result := make([]string, 0)
+		result := make([]Namespace, 0)
 		for _, v := range namespaceList.Items {
-			result = append(result, v.Name)
+			var r = Namespace{
+				Name:   v.Name,
+				Status: string(v.Status.Phase),
+			}
+			result = append(result, r)
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"message": "查询成功",
@@ -46,8 +50,38 @@ func main() {
 		})
 	})
 	// 创建指定的工作空间
-	r.POST("/pub_service/workspace", func(c *gin.Context) {
-		namespace := c.PostForm("namespace")
+	r.GET("/pub_service/workspace/:namespace", func(c *gin.Context) {
+		//namespace := c.PostForm("namespace")
+		namespace := c.Param("namespace")
+		client := utils.GetK8sClient()
+		if client == nil {
+			fmt.Println("client is nill")
+			return
+		}
+		ns := &apiv1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   namespace,
+				Labels: map[string]string{"name": namespace},
+			},
+		}
+		_, err := client.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "增加失败",
+				"data":    err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "增加" + namespace + "成功",
+			"data":    nil,
+		})
+		return
+	})
+	// 删除指定的工作空间
+	r.GET("/pub_service/workspace/del/:namespace", func(c *gin.Context) {
+		//namespace := c.PostForm("namespace")
+		namespace := c.Param("namespace")
 		client := utils.GetK8sClient()
 		if client == nil {
 			fmt.Println("client is nill")
@@ -62,17 +96,48 @@ func main() {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"message": "删除成功",
+			"message": "删除" + namespace + "成功",
 			"data":    nil,
 		})
 	})
-	// 删除指定的工作空间
-	r.DELETE("/pub_service/workspace", func(c *gin.Context) {
-		namespace := c.PostForm("namespace")
-		// 创建命名空间
-		fmt.Println("删除工作空间", namespace)
+
+	// 服务相关
+	r.GET("/pub_service/:namespace/all", func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		client := utils.GetK8sClient()
+		if client == nil {
+			fmt.Println("client is nill")
+			return
+		}
+		serviceList, err := client.CoreV1().Services(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "查询服务失败",
+				"data":    err.Error(),
+			})
+			return
+		}
+		type Service struct {
+			Name            string `json:"name"`
+			ClusterIP       string `json:"cluster_ip"`
+			SessionAffinity string `json:"session_affinity"`
+			Status          string `json:"status"`
+		}
+		result := make([]Service, 0)
+		for _, v := range serviceList.Items {
+			s := Service{
+				Name:            v.Name,
+				ClusterIP:       v.Spec.ClusterIP,
+				SessionAffinity: string(v.Spec.SessionAffinity),
+				Status:          v.Status.String(),
+			}
+			result = append(result, s)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":"查询服务成功",
+
+		})
 	})
-	r.GET("/pub_service/:namespace/all")
 	r.GET("/pub_service/:namespace/:svc_name")
 	// 服务治理
 	// 自动运维
@@ -109,4 +174,9 @@ func generateToken(username, password string) (string, error) {
 	}
 	log.Printf("generateToken() get the token,it is : %s", token)
 	return token, nil
+}
+
+type Namespace struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
 }
