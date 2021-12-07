@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"t/back/entity"
 	"t/back/middleware"
 	"t/back/utils"
 	"time"
@@ -36,9 +37,9 @@ func main() {
 		if err != nil {
 			return
 		}
-		res := make([]HarborRepository, 0)
+		res := make([]entity.HarborRepository, 0)
 		for _, project := range *projects {
-			var harborRepository = HarborRepository{
+			var harborRepository = entity.HarborRepository{
 				ProjectId:   project.ProjectID,
 				ProjectName: project.Name,
 				CreateTime:  project.CreationTime.String(),
@@ -52,9 +53,9 @@ func main() {
 			if err != nil {
 
 			}
-			imageList := make([]Image, 0)
+			imageList := make([]entity.Image, 0)
 			for _, image := range *images {
-				var i = Image{
+				var i = entity.Image{
 					PullCount:    image.PullCount,
 					ImageName:    image.Name,
 					UpdateTime:   image.UpdateTime.String(),
@@ -104,9 +105,9 @@ func main() {
 			fmt.Println(err)
 			return
 		}
-		result := make([]Namespace, 0)
+		result := make([]entity.Namespace, 0)
 		for _, v := range namespaceList.Items {
-			var r = Namespace{
+			var r = entity.Namespace{
 				Name:   v.Name,
 				Status: string(v.Status.Phase),
 			}
@@ -169,7 +170,7 @@ func main() {
 		})
 	})
 	// 创建服务
-	r.POST("/pub_service/workspace/:namespace", func(c *gin.Context) {
+	r.PUT("/pub_service/workspace/:namespace", func(c *gin.Context) {
 		namespace := c.Param("namespace")
 		service_name := c.PostForm("service_name")
 		image := c.PostForm("image")
@@ -193,7 +194,7 @@ func main() {
 			})
 			return
 		}
-		row := dbClient.QueryRow(`SELECT COUNT(*) AS total FROM tb_service WHERE delete_flag!=0 and service_name = ?`, service_name)
+		row := dbClient.QueryRow(`SELECT COUNT(*) AS total FROM tb_service WHERE delete_flag!=0 and service_name = ? and namespace= ?`, service_name, namespace)
 
 		var r int64
 		if err := row.Scan(&r); err != nil {
@@ -210,18 +211,36 @@ func main() {
 			})
 			return
 		}
-		// insert
+		// insert or update
+		// if
 		now := time.Now().Unix()
-		_, err := dbClient.Exec(`INSERT INTO tb_service (service_name,namespace,create_time,replicas,image_name,env_vars,ports,description,creator,change_time) VALUES 
-					(?,?,?,?,?,?,?,?,?,?)`,
-			service_name, namespace, now, count, image, "ttt", port, "ttttt", "admin", now)
-
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
+		row = dbClient.QueryRow(`SELECT COUNT(*) AS total FROM tb_service WHERE service_name = ? and namespace= ?`, service_name, namespace)
+		if err := row.Scan(&r); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
 				"data":    nil,
-				"message": err.Error(),
+				"message": "数据库查询失败",
 			})
 			return
+		}
+		if r == 0 {
+			_, err := dbClient.Exec(`INSERT INTO tb_service (service_name,namespace,create_time,replicas,image_name,env_vars,ports,description,creator,change_time) VALUES 
+					(?,?,?,?,?,?,?,?,?,?)`,
+				service_name, namespace, now, count, image, "ttt", port, "ttttt", "admin", now)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"data":    nil,
+					"message": "数据库插入失败" + err.Error(),
+				})
+			}
+			return
+		} else {
+			_, err := dbClient.Exec(`UPDATE tb_service SET delete_flag=? WHERE service_name = ? and namespace=?`, "1", service_name, namespace)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"data":    nil,
+					"message": "数据库更新失败" + err.Error(),
+				})
+			}
 		}
 		deploymentsClient := k8sClient.AppsV1().Deployments(namespace)
 		servicesClient := k8sClient.CoreV1().Services(namespace)
@@ -277,7 +296,7 @@ func main() {
 		dep_result, err1 := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
 		svc_result, err2 := servicesClient.Create(context.TODO(), service, metav1.CreateOptions{})
 		// 将服务ip 更新到数据库 svc_result.Spec.ClusterIP
-		_, err = dbClient.Exec(`UPDATE tb_service SET cluster_ip=? WHERE service_name = ?`, svc_result.Spec.ClusterIP, service_name)
+		_, err := dbClient.Exec(`UPDATE tb_service SET cluster_ip=? WHERE service_name = ? and namespace= ?`, svc_result.Spec.ClusterIP, service_name,namespace)
 		if err != nil {
 			fmt.Println("服务IP更新到数据库失败")
 			return
@@ -324,7 +343,7 @@ func main() {
 			return
 		}
 		now := time.Now().Unix()
-		row := dbClient.QueryRow(`SELECT COUNT(*) AS total FROM tb_service WHERE delete_flag!=0 and service_name = ?`, service_name)
+		row := dbClient.QueryRow(`SELECT COUNT(*) AS total FROM tb_service WHERE delete_flag!=0 and service_name = ? and namespace= ?`, service_name,namespace)
 		var r int64
 		if err := row.Scan(&r); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -352,7 +371,7 @@ func main() {
 			return
 		}
 		// 将服务ip 更新到数据库 svc_result.Spec.ClusterIP
-		_, err = dbClient.Exec(`UPDATE tb_service SET delete_flag=?,change_time =? WHERE service_name = ?`, "0", now, service_name)
+		_, err = dbClient.Exec(`UPDATE tb_service SET delete_flag=?,change_time =? WHERE service_name = ? and namespace= ?`, "0", now, service_name,namespace)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"data":    nil,
@@ -365,6 +384,59 @@ func main() {
 			"message": "删除服务" + service_name + "成功",
 		})
 		return
+	})
+	// 修改服务参数
+		// 1 副本数
+		// 2 修改镜像
+		// 3 修改端口
+	r.POST("/pub_service/workspace/:namespace", func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		service_name := c.PostForm("service_name")
+		replica := c.PostForm("replica")
+		//image := c.PostForm("image")
+		//port := c.PostForm("port")
+		deploymentsClient := utils.GetK8sClient().AppsV1().Deployments(namespace)
+		deployment, err := deploymentsClient.Get(context.TODO(), service_name, metav1.GetOptions{})
+		if err != nil{
+			c.JSON(http.StatusOK,gin.H{
+				"data":nil,
+				"message":"服务不存在"+err.Error(),
+			})
+			return
+		}
+		if deployment != nil{
+			deployment.Spec.Replicas = int32Ptr(strToInt32(replica))
+		}
+		_, err = deploymentsClient.Update(context.TODO(), deployment, metav1.UpdateOptions{})
+		if err != nil{
+			c.JSON(http.StatusOK,gin.H{
+				"data":nil,
+				"message":"服务更新错误",
+			})
+			return
+		}
+		dbClient := utils.GetDBClient()
+		if dbClient == nil {
+			fmt.Println("dbClient is nil")
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"data":    nil,
+				"message": "获取数据库连接错误",
+			})
+			return
+		}
+		now := time.Now().Unix()
+		_, err = dbClient.Exec(`UPDATE tb_service SET replicas=?,change_time =? WHERE service_name = ? and namespace= ?`, replica, now, service_name,namespace)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"data":    nil,
+				"message": "服务删除失败" + err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK,gin.H{
+			"data":nil,
+			"message":"服务更新成功",
+		})
 	})
 	// 服务相关
 	r.GET("/pub_service/:namespace/all", func(c *gin.Context) {
@@ -382,15 +454,10 @@ func main() {
 			})
 			return
 		}
-		type Service struct {
-			Name            string `json:"name"`
-			ClusterIP       string `json:"cluster_ip"`
-			SessionAffinity string `json:"session_affinity"`
-			Status          string `json:"status"`
-		}
-		result := make([]Service, 0)
+
+		result := make([]entity.Service, 0)
 		for _, v := range serviceList.Items {
-			s := Service{
+			s := entity.Service{
 				Name:            v.Name,
 				ClusterIP:       v.Spec.ClusterIP,
 				SessionAffinity: string(v.Spec.SessionAffinity),
@@ -448,24 +515,6 @@ func generateToken(username, password string) (string, error) {
 	return token, nil
 }
 
-type Namespace struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-}
-type RepositoryAddr struct {
-	ImageName   string `json:"imageName"`
-	ProjectName string `json:"projectName"`
-}
-type HarborRepository struct {
-	ProjectId   int64  `json:"project_id"`
-	ProjectName string `json:"project_name"`
-	CreateTime  string `json:"creation_time"`
-	UpdateTime  string `json:"create_time"`
-	OwnerName   string `json:"owner_name"`
-	RepoCount   int64  `json:repo_count`
-	Images      []Image
-}
-
 //查询某个镜像的Tag
 func GetSomeImage(projectName, imageName string) (res []string, err error) {
 	var query = model.Query{}
@@ -476,15 +525,4 @@ func GetSomeImage(projectName, imageName string) (res []string, err error) {
 		}
 	}
 	return res, err
-}
-
-type Image struct {
-	ImageName    string   `json:"image_name"`
-	UpdateTime   string   `json:"update_time"`
-	CreateTime   string   `json:"create_time"`
-	ProjectId    int64    `json:"project_id"`
-	Description  string   `json:"description"`
-	RepositoryId int64    `json:"repository_id"`
-	PullCount    int64    `json:"pull_count"`
-	Tag          []string `json:"tag"`
 }
