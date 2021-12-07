@@ -11,16 +11,15 @@ var (
 	DB *sqlx.DB = nil
 )
 
-func getDBClient() {
+func GetDBClient()*sqlx.DB {
+	if DB != nil{
+		return DB
+	}
 	db, err := sqlx.Open(config.DBConfig.DriverName, config.DBConfig.GetDataSourceName())
 	if err != nil {
 		log.Printf("DBUtil.getDBClient.Open: %s\n", err)
-		return
+		return nil
 	}
-
 	DB = db
-}
-
-func init() {
-	getDBClient()
+	return DB
 }

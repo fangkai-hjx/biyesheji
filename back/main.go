@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"github.com/TimeBye/go-harbor/pkg/model"
 	"github.com/gin-gonic/gin"
+	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"t/back/middleware"
 	"t/back/utils"
+	"time"
 )
 
 func main() {
@@ -165,7 +168,204 @@ func main() {
 			"data":    nil,
 		})
 	})
+	// 创建服务
+	r.POST("/pub_service/workspace/:namespace", func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		service_name := c.PostForm("service_name")
+		image := c.PostForm("image")
+		//tag := "app=nginx-demo"
+		port := strToInt32(c.PostForm("port"))
+		//count := c.Param("count")
+		count := strToInt32(c.PostForm("count"))
+		fmt.Println(namespace, image, service_name, image, port)
+		k8sClient := utils.GetK8sClient()
+		if k8sClient == nil {
+			fmt.Println("k8sClient is nil")
+			return
+		}
+		// check service from db
+		dbClient := utils.GetDBClient()
+		if dbClient == nil {
+			fmt.Println("dbClient is nil")
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"data":    nil,
+				"message": "获取数据库连接错误",
+			})
+			return
+		}
+		row := dbClient.QueryRow(`SELECT COUNT(*) AS total FROM tb_service WHERE delete_flag!=0 and service_name = ?`, service_name)
 
+		var r int64
+		if err := row.Scan(&r); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"data":    nil,
+				"message": "数据库查询失败",
+			})
+			return
+		}
+		if r != 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"data":    nil,
+				"message": "服务已被创建，请勿重复创建",
+			})
+			return
+		}
+		// insert
+		now := time.Now().Unix()
+		_, err := dbClient.Exec(`INSERT INTO tb_service (service_name,namespace,create_time,replicas,image_name,env_vars,ports,description,creator,change_time) VALUES 
+					(?,?,?,?,?,?,?,?,?,?)`,
+			service_name, namespace, now, count, image, "ttt", port, "ttttt", "admin", now)
+
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"data":    nil,
+				"message": err.Error(),
+			})
+			return
+		}
+		deploymentsClient := k8sClient.AppsV1().Deployments(namespace)
+		servicesClient := k8sClient.CoreV1().Services(namespace)
+		service := &apiv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: service_name,
+			},
+			Spec: apiv1.ServiceSpec{
+				Ports: []apiv1.ServicePort{
+					apiv1.ServicePort{
+						Port: 80,
+					},
+				},
+				Selector: map[string]string{"app": "nginx-demo"},
+			},
+		}
+		deployment := &appsv1.Deployment{ //
+			ObjectMeta: metav1.ObjectMeta{
+				Name: service_name,
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: int32Ptr(count),
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"app": "nginx-demo",
+					},
+				},
+				Template: apiv1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"app": "nginx-demo",
+						},
+					},
+					Spec: apiv1.PodSpec{
+						Containers: []apiv1.Container{
+							{
+								Name:  service_name,
+								Image: image,
+								Ports: []apiv1.ContainerPort{
+									{
+										Name:          "http",
+										Protocol:      apiv1.ProtocolTCP,
+										ContainerPort: port,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		fmt.Println("Creating deployment...")
+		dep_result, err1 := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
+		svc_result, err2 := servicesClient.Create(context.TODO(), service, metav1.CreateOptions{})
+		// 将服务ip 更新到数据库 svc_result.Spec.ClusterIP
+		_, err = dbClient.Exec(`UPDATE tb_service SET cluster_ip=? WHERE service_name = ?`, svc_result.Spec.ClusterIP, service_name)
+		if err != nil {
+			fmt.Println("服务IP更新到数据库失败")
+			return
+		}
+		data := ""
+		if err1 != nil {
+			data += err1.Error()
+		}
+		if err2 != nil {
+			data += err2.Error()
+		}
+		if data != "" {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "创建失败",
+				"data":    data,
+			})
+			return
+		}
+		fmt.Printf("Created deployment %q.\n", dep_result.GetObjectMeta().GetName())
+		fmt.Printf("Created service %q.\n", svc_result.GetObjectMeta().GetName())
+		c.JSON(http.StatusOK, gin.H{
+			"message": "创建成功",
+			"data":    nil,
+		})
+	})
+	// 删除服务
+	r.DELETE("/pub_service/workspace/:namespace", func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		service_name := c.PostForm("service_name")
+		fmt.Println(namespace, service_name)
+		k8sClient := utils.GetK8sClient()
+		if k8sClient == nil {
+			fmt.Println("k8sClient is nil")
+			return
+		}
+		// check service from db
+		dbClient := utils.GetDBClient()
+		if dbClient == nil {
+			fmt.Println("dbClient is nil")
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"data":    nil,
+				"message": "获取数据库连接错误",
+			})
+			return
+		}
+		now := time.Now().Unix()
+		row := dbClient.QueryRow(`SELECT COUNT(*) AS total FROM tb_service WHERE delete_flag!=0 and service_name = ?`, service_name)
+		var r int64
+		if err := row.Scan(&r); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"data":    nil,
+				"message": "数据库查询失败",
+			})
+			return
+		}
+		if r == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"data":    nil,
+				"message": "服务不存在，删除失败",
+			})
+			return
+		}
+		// delete
+		err := k8sClient.AppsV1().Deployments(namespace).Delete(context.TODO(), service_name, metav1.DeleteOptions{})
+		if err != nil {
+			fmt.Println("delete deployment is error:", err.Error())
+			return
+		}
+		err = k8sClient.CoreV1().Services(namespace).Delete(context.TODO(), service_name, metav1.DeleteOptions{})
+		if err != nil {
+			fmt.Println("delete service is error:", err.Error())
+			return
+		}
+		// 将服务ip 更新到数据库 svc_result.Spec.ClusterIP
+		_, err = dbClient.Exec(`UPDATE tb_service SET delete_flag=?,change_time =? WHERE service_name = ?`, "0", now, service_name)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"data":    nil,
+				"message": "服务删除失败" + err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data":    nil,
+			"message": "删除服务" + service_name + "成功",
+		})
+		return
+	})
 	// 服务相关
 	r.GET("/pub_service/:namespace/all", func(c *gin.Context) {
 		namespace := c.Param("namespace")
@@ -209,6 +409,14 @@ func main() {
 	r.GET("/pod/:namespace/:pod_name")
 	r.GET("/pod_log/:namespace/:pod_name")
 	r.Run() // listen and serve on 0.0.0.0:8080
+}
+func int32Ptr(i int32) *int32 { return &i }
+func strToInt32(str string) int32 {
+	j, err := strconv.ParseInt(str, 10, 32)
+	if err != nil {
+		return -1
+	}
+	return int32(j)
 }
 
 // 登录成功-->发送token-->跳转到主页

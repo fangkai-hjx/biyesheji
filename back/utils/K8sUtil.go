@@ -14,7 +14,7 @@ func GetK8sClient() *kubernetes.Clientset{
 	if K8sClient != nil{
 		return K8sClient
 	}
-	k8sConfig, err := clientcmd.BuildConfigFromFlags("", "../back/config/k8s-config-home")
+	k8sConfig, err := clientcmd.BuildConfigFromFlags("", "../back/config/k8s-config")
 	if err != nil {
 		log.Printf("K8sUtil.BuildConfigFromFlags: %s\n", err)
 		return nil

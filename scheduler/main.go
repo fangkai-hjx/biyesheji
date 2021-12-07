@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"strings"
+	_ "t/back/config"
 	"t/back/utils"
 )
 
