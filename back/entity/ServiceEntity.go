@@ -1,9 +1,17 @@
 package entity
+
 type Service struct {
 	Name            string `json:"name"`
 	ClusterIP       string `json:"cluster_ip"`
 	SessionAffinity string `json:"session_affinity"`
 	Status          string `json:"status"`
+	Pod             []Pod  `json:"pod"`
+}
+type Pod struct {
+	Name        string `json:"name"`
+	ServiceName string `json:"service_name"`
+	Status      string `json:"status"`
+	Image		string `json:"image"`
 }
 type Image struct {
 	ImageName    string   `json:"image_name"`
