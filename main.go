@@ -12,11 +12,6 @@ import (
 )
 
 func main() {
-	err := utils2.InitClient()
-	if err != nil {
-		fmt.Println("init redis failed..")
-	}
-
 	k8sConfig, err := clientcmd.BuildConfigFromFlags("", "k8s-config")
 	if err != nil {
 		log.Printf("K8sUtil.BuildConfigFromFlags: %s\n", err)
@@ -33,9 +28,13 @@ func main() {
 		fmt.Printf("create watch error, error is %s, program exit!", err.Error())
 		panic(err)
 	}
-	redisClient := utils2.Rdb
+	redisClient := utils2.GetRedisClient()
+	if redisClient == nil{
+		fmt.Println("get redis client failed")
+		return
+	}
 	var message string
-	var key string = "event:warning"
+	key := "event:warning"
 	for {
 		select {
 		case <-w.ResultChan():

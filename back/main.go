@@ -5,27 +5,29 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"t/back/config"
+	image "t/back/router/imge"
 	namespace "t/back/router/namespace"
 	service "t/back/router/service"
 	"t/back/utils"
 )
 
 var Router *gin.Engine
+
 func main() {
 	Router = gin.Default()
 	setRouter()
-	err := Router.Run(":8080")
-	if err != nil {
-		return
-	}
+	Router.Run(":" + config.ProjectConfig.ProjectPort)
 }
 
-func setRouter(){
+func setRouter() {
 	apiv2 := Router.Group("/api/v1")
 	rest := apiv2.Group("/rest")
 	namespace.Router(rest)
 	service.Router(rest)
+	image.Router(rest)
 }
+
 // 登录成功-->发送token-->跳转到主页
 // 登录失败-->调整到登录页
 //eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTmFtZSI6ImFkbWluIiwicG93ZXIiOjAsInBob25lIjoiIiwiZXhwIjoxNjM4MzMwNDUwLCJpc3MiOiJhZG1pbiIsIm5iZiI6MTYzODMyNzY1MH0.JF9RYXvyZy5Cdzpp89oF6IMLq95gLx7023DIf7wXtmo func

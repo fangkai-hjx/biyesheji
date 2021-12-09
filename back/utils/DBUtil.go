@@ -15,7 +15,7 @@ func GetDBClient()*sqlx.DB {
 	if DB != nil{
 		return DB
 	}
-	db, err := sqlx.Open(config.DBConfig.DriverName, config.DBConfig.GetDataSourceName())
+	db, err := sqlx.Open(config.ProjectConfig.DriverName, config.ProjectConfig.GetDataSourceName())
 	if err != nil {
 		log.Printf("DBUtil.getDBClient.Open: %s\n", err)
 		return nil

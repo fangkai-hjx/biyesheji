@@ -2,5 +2,21 @@
   "project_name": "service-manager",
   "project_mode": "debug",
   "project_host": "222.201.187.155",
-  "project_port": "8084"
+  "project_port": "8080",
+  "harbor_url": "http://116.56.140.62:8089/",
+  "harbor_username": "root",
+  "harbor_password": "Harbor12345",
+
+  "k8s_evn": "k8s-config",
+
+  "driver_name": "mysql",
+  "user_name": "root",
+  "password": "root",
+  "host": "116.56.140.62",
+  "port": 3307,
+  "database_name": "biyesheji",
+  "charset": "utf8",
+
+  "redis_url": "192.168.3.67:6379",
+  "redis_db": "0"
 }

@@ -4,6 +4,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
+	"t/back/config"
 )
 
 var (
@@ -14,7 +15,7 @@ func GetK8sClient() *kubernetes.Clientset{
 	if K8sClient != nil{
 		return K8sClient
 	}
-	k8sConfig, err := clientcmd.BuildConfigFromFlags("", "../back/config/k8s-config")
+	k8sConfig, err := clientcmd.BuildConfigFromFlags("", "../back/config/"+config.ProjectConfig.K8sEvn)
 	if err != nil {
 		log.Printf("K8sUtil.BuildConfigFromFlags: %s\n", err)
 		return nil
