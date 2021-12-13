@@ -1,7 +1,7 @@
 {
   "project_name": "service-manager",
   "project_mode": "debug",
-  "project_host": "222.201.187.155",
+  "project_host": "localhost",
   "project_port": "8080",
   "harbor_url": "http://116.56.140.62:8089/",
   "harbor_username": "root",

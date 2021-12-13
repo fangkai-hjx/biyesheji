@@ -9,6 +9,7 @@ import (
 	image "t/back/router/imge"
 	namespace "t/back/router/namespace"
 	service "t/back/router/service"
+	"t/back/router/system"
 	"t/back/utils"
 )
 
@@ -26,6 +27,7 @@ func setRouter() {
 	namespace.Router(rest)
 	service.Router(rest)
 	image.Router(rest)
+	system.Router(rest)
 }
 
 // 登录成功-->发送token-->跳转到主页
