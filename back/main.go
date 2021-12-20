@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"t/back/config"
+	"t/back/middleware"
 	image "t/back/router/imge"
 	namespace "t/back/router/namespace"
 	service "t/back/router/service"
@@ -17,6 +18,7 @@ var Router *gin.Engine
 
 func main() {
 	Router = gin.Default()
+	Router.Use(middleware.Cors())
 	setRouter()
 	Router.Run(":" + config.ProjectConfig.ProjectPort)
 }

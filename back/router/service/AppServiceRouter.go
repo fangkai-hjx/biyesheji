@@ -23,7 +23,7 @@ func Router(router *gin.RouterGroup) {
 		app.POST("/:namespace", updateService)
 		app.GET("/:namespace/all", getAllService)
 		//app.GET("/:namespace/:svc_name", getService)
-		//app.GET("/:namespace/:svc_name", getOneService)
+		app.GET("/:namespace//status", getServiceStatus)
 	}
 }
 func createService(c *gin.Context) {
@@ -254,6 +254,93 @@ func updateService(c *gin.Context) {
 		"data":    nil,
 		"message": "服务更新成功",
 	})
+}
+
+type ServiceStatus struct {
+	Healthy   int `json:"healthy"`
+	UnHealthy int `json:"unhealthy"`
+	Error     int `json:"error"`
+}
+
+func getServiceStatus(c *gin.Context) {
+	namespace := c.Param("namespace")
+	client := utils.GetK8sClient()
+	if client == nil {
+		fmt.Println("client is nil")
+		return
+	}
+	serviceList, err := client.CoreV1().Services(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "查询服务失败",
+			"data":    err.Error(),
+		})
+		return
+	}
+	Healthy := 0
+	UnHealthy := 0
+	Error := 0
+	for _, v := range serviceList.Items {
+		sss := getOneServiceStatus(namespace, v.Name)
+		if sss == -1 {
+			Error++
+		} else if sss == 1 {
+			Healthy++
+		} else {
+			UnHealthy++
+		}
+	}
+	ss := ServiceStatus{
+		Healthy:   Healthy,
+		UnHealthy: UnHealthy,
+		Error:     Error,
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "查询服务成功",
+		"data":    ss,
+	})
+}
+
+// get service status[-1 error 1 healthy 2 unhealthy]
+func getOneServiceStatus(namespace, service_name string) int {
+	client := utils.GetK8sClient()
+	if client == nil {
+		fmt.Println("client is nil")
+		return -1
+	}
+	service, err := client.CoreV1().Services(namespace).Get(context.TODO(), service_name, metav1.GetOptions{})
+	if err != nil {
+		return -1
+	}
+	podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + service.Name})
+	if err != nil {
+		return -1
+	}
+	running_pod := 0
+	error_pod := 0
+	all_pod := len(podList.Items)
+	result := -1
+	if all_pod == 0 {
+		return 1
+	}
+	for _, pod := range podList.Items {
+		sc := getCondition(namespace, pod.Name)
+		if sc.ContainersReady == "True" && sc.Ready == "True" &&
+			sc.PodScheduled == "True" && sc.Initialized == "True" {
+			running_pod++
+		} else {
+			error_pod++
+		}
+	}
+	if running_pod == 0 {
+		result = -1
+	}
+	if running_pod == all_pod {
+		result = 1
+	} else {
+		result = 2
+	}
+	return result
 }
 
 // 获取所有服务，包括获取服务下的实例
