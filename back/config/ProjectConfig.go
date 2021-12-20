@@ -29,6 +29,9 @@ type projectConfig struct {
 
 	RedisUrl     string `json:"redis_url"`
 	RedisDB      int `json:"redis_db"`
+
+	PrometheusUrl string `json:"prometheus_url"`
+
 }
 
 var (

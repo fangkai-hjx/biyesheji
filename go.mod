@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/TimeBye/go-harbor v0.0.0-20210528022852-7a6811422e3c
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/docker/docker v1.4.2-0.20200213202729-31a86c4ab209
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-redis/redis v6.15.9+incompatible

@@ -20,6 +20,10 @@ func Router(router *gin.RouterGroup) {
 		//cluster.PUT("/cluster",updateCluster )
 	}
 }
+// 上传镜像到服务器
+func uploadImage(c *gin.Context)  {
+
+}
 func getAllImage(c *gin.Context)  {
 	query := model.Query{}
 	HarborClient := utils.GetHarborClient()

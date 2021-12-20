@@ -5,13 +5,20 @@ type Service struct {
 	ClusterIP       string `json:"cluster_ip"`
 	SessionAffinity string `json:"session_affinity"`
 	Status          string `json:"status"`
+	SuccessLu		float32 `json:"success_lu"`
 	Pod             []Pod  `json:"pod"`
 }
+type ServiceConditions struct {
+	Initialized     string `json:"initialized"`
+	Ready           string `json:"ready"`
+	ContainersReady string `json:"containersReady"`
+	PodScheduled    string `json:"podScheduled"`
+}
 type Pod struct {
-	Name        string `json:"name"`
-	ServiceName string `json:"service_name"`
-	Status      string `json:"status"`
-	Image		string `json:"image"`
+	Name              string            `json:"name"`
+	ServiceName       string            `json:"service_name"`
+	ServiceConditions ServiceConditions `json:"service_conditions"`
+	Image             string            `json:"image"`
 }
 type Image struct {
 	ImageName    string   `json:"image_name"`

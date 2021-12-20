@@ -22,7 +22,8 @@ func Router(router *gin.RouterGroup) {
 		app.DELETE("/:namespace", deleteService)
 		app.POST("/:namespace", updateService)
 		app.GET("/:namespace/all", getAllService)
-		app.GET("/:namespace/:svc_name", getOneService)
+		//app.GET("/:namespace/:svc_name", getService)
+		//app.GET("/:namespace/:svc_name", getOneService)
 	}
 }
 func createService(c *gin.Context) {
@@ -260,7 +261,7 @@ func getAllService(c *gin.Context) {
 	namespace := c.Param("namespace")
 	client := utils.GetK8sClient()
 	if client == nil {
-		fmt.Println("client is nill")
+		fmt.Println("client is nil")
 		return
 	}
 	serviceList, err := client.CoreV1().Services(namespace).List(context.TODO(), metav1.ListOptions{})
@@ -278,21 +279,33 @@ func getAllService(c *gin.Context) {
 			Name:            v.Name,
 			ClusterIP:       v.Spec.ClusterIP,
 			SessionAffinity: string(v.Spec.SessionAffinity),
-			Status:          v.Status.String(),
 		}
 		//查询所有的Pod
 		podList, _ := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + v.Name})
 		podItems := make([]entity.Pod, 0)
+		running := 0
+		all := len(podList.Items)
 		for _, pod := range podList.Items {
 			ppd := entity.Pod{
-				Name:        pod.Name,
-				ServiceName: v.Name,
-				Status:      v.Status.String(),
-				Image:       pod.Spec.Containers[0].Image,
+				Name:              pod.Name,
+				ServiceName:       v.Name,
+				ServiceConditions: getCondition(namespace, pod.Name),
+				Image:             pod.Spec.Containers[0].Image,
+			}
+			if ppd.ServiceConditions.ContainersReady == "True" && ppd.ServiceConditions.Ready == "True" &&
+				ppd.ServiceConditions.PodScheduled == "True" && ppd.ServiceConditions.Initialized == "True" {
+				running++
 			}
 			podItems = append(podItems, ppd)
 		}
 		s.Pod = podItems
+		if all == 0 {
+			s.SuccessLu = 0
+		} else {
+			fmt.Println(running, all)
+			s.SuccessLu = float32(running) / float32(all)
+		}
+		s.Status = judgeSvcStatus(all, running)
 		result = append(result, s)
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -300,9 +313,63 @@ func getAllService(c *gin.Context) {
 		"data":    result,
 	})
 }
+func judgeSvcStatus(all, running int) string {
+	if running == all {
+		return "HEALTHY"
+	} else if running == 0 {
+		return "ERROR"
+	} else {
+		return "UNHEALTHY"
+	}
+}
+func getService(c *gin.Context) {
 
-func getOneService(c *gin.Context) {
-
+}
+func getCondition(namespace, svcName string) (sc entity.ServiceConditions) {
+	client := utils.GetK8sClient()
+	if client == nil {
+		fmt.Println("client is nil")
+		return sc
+	}
+	myPod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), svcName, metav1.GetOptions{})
+	if err != nil {
+		return sc
+	}
+	for _, v := range myPod.Status.Conditions {
+		if v.Type == "Initialized" {
+			if v.Status == "True" {
+				sc.Initialized = "True"
+			} else {
+				sc.Initialized = "False"
+			}
+			continue
+		}
+		if v.Type == "ContainersReady" {
+			if v.Status == "True" {
+				sc.ContainersReady = "True"
+			} else {
+				sc.ContainersReady = "False"
+			}
+			continue
+		}
+		if v.Type == "Ready" {
+			if v.Status == "True" {
+				sc.Ready = "True"
+			} else {
+				sc.Ready = "False"
+			}
+			continue
+		}
+		if v.Type == "PodScheduled" {
+			if v.Status == "True" {
+				sc.PodScheduled = "True"
+			} else {
+				sc.PodScheduled = "False"
+			}
+			continue
+		}
+	}
+	return sc
 }
 
 func int32Ptr(i int32) *int32 { return &i }
