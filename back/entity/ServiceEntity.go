@@ -1,12 +1,15 @@
 package entity
 
 type Service struct {
-	Name            string `json:"name"`
-	ClusterIP       string `json:"cluster_ip"`
-	SessionAffinity string `json:"session_affinity"`
-	Status          string `json:"status"`
-	SuccessLu		float32 `json:"success_lu"`
-	Pod             []Pod  `json:"pod"`
+	Name            string  `json:"name"`
+	ClusterIP       string  `json:"cluster_ip"`
+	SessionAffinity string  `json:"session_affinity"`
+	Status          string  `json:"status"`
+	Success         int     `json:"success"`
+	Fail            int     `json:"fail"`
+	Total           int     `json:"total"`
+	SuccessLu       float64 `json:"success_lu"`
+	Pod             []Pod   `json:"pod"`
 }
 type ServiceConditions struct {
 	Initialized     string `json:"initialized"`
@@ -16,19 +19,19 @@ type ServiceConditions struct {
 }
 type Pod struct {
 	Name              string            `json:"name"`
-	ServiceName       string            `json:"service_name"`
+	//ServiceName       string            `json:"service_name"`
 	ServiceConditions ServiceConditions `json:"service_conditions"`
 	Image             string            `json:"image"`
 }
 type Image struct {
-	ImageName    string   `json:"image_name"`
-	UpdateTime   string   `json:"update_time"`
-	CreateTime   string   `json:"create_time"`
-	ProjectId    int64    `json:"project_id"`
-	Description  string   `json:"description"`
-	RepositoryId int64    `json:"repository_id"`
-	PullCount    int64    `json:"pull_count"`
-	Tag          []string `json:"tag"`
+	ImageName    string `json:"image_name"`
+	UpdateTime   string `json:"update_time"`
+	CreateTime   string `json:"create_time"`
+	ProjectId    int64  `json:"project_id"`
+	Description  string `json:"description"`
+	RepositoryId int64  `json:"repository_id"`
+	PullCount    int64  `json:"pull_count"`
+	Tag          string `json:"tag"`
 }
 type Namespace struct {
 	Name   string `json:"name"`
