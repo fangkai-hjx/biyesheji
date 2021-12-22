@@ -11,6 +11,14 @@ Vue.use(VueRouter)
 
 const routes = [
   {
+    path:'/da',
+    name:'系统管理',
+    component: ServiceManager,
+    children:[
+      
+    ]
+  },
+  {
     path: '/',
     name: 'Login',
     component: Login,
@@ -46,6 +54,14 @@ const routes = [
   {
     path:'',
     name:'服务治理',
+    component: ServiceManager,
+    children:[
+      
+    ]
+  },
+  {
+    path:'',
+    name:'自动运维',
     component: ServiceManager,
     children:[
       

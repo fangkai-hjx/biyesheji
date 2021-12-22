@@ -33,27 +33,26 @@
         <!-- <el-button v-if="isAuth('member:member:save')" type="primary" @click="addOrUpdateHandle()">新增</el-button>
         <el-button v-if="isAuth('member:member:delete')" type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>-->
       </el-form-item>
-      <div style="float: left">
+      <div style="float:left">
         <div
           id="ServiceStatus"
-          style="width: 400px; height: 300px"
+          style="width: 600px; height: 300px"
           class="float-div"
         ></div>
         <div
           id="PodStatus"
-          style="width: 400px; height: 300px"
+          style="width: 600px; height: 300px"
           class="float-div"
         ></div>
       </div>
-      <br />
     </el-form>
-    <el-table
-      :data="tableData"
-      border
-      width="100%"
-      :row-class-name="tableRowClassName"
-    >
-      <el-table-column prop="name" label="服务名" width="300px"></el-table-column>
+    <el-table :data="tableData" border width="100%" :cell-style="cellStyle">
+      <el-table-column
+        prop="name"
+        label="服务名"
+        width="250px"
+      ></el-table-column>
+      <el-table-column prop="runtime" label="运行时长(小时)"></el-table-column>
       <el-table-column prop="cluster_ip" label="服务IP"></el-table-column>
       <el-table-column prop="total" label="实例总数"></el-table-column>
       <el-table-column prop="success" label="可用实例"></el-table-column>
@@ -94,9 +93,9 @@
 
 <script>
 import Axios from "axios";
-import AddOrUpdate  from "./service-pod-detail.vue"
+import AddOrUpdate from "./service-pod-detail.vue";
 export default {
-   components: {AddOrUpdate},
+  components: { AddOrUpdate },
   data() {
     return {
       options: [],
@@ -111,7 +110,7 @@ export default {
       dataForm: {
         key: "",
       },
-      addOrUpdateVisible: false
+      addOrUpdateVisible: false,
     };
   },
   mounted() {
@@ -125,14 +124,20 @@ export default {
     });
   },
   methods: {
-    tableRowClassName({ row, rowIndex }) {
-      if (row["fail"] != 0) {
-        return "warning-row";
+    cellStyle(row, column, rowIndex, columnIndex) {
+      if (row.column.label === "服务状态" && row.row.status === "ERROR") {
+        return "background:#CD9B9B;color:whitesmoke;font-size:15px;";
+      } else if (
+        row.column.label === "服务状态" &&
+        row.row.status === "UNHEALTHY"
+      ) {
+        return "background:#DAA520;color:whitesmoke;font-size:15px;";
+      } else if (
+        row.column.label === "服务状态" &&
+        row.row.status === "HEALTHY"
+      ) {
+        return "background:	#548B54;color:whitesmoke;font-size:15px;";
       }
-      if (row["total"] == 0) {
-        return "error-row";
-      }
-      return "success-row";
     },
     clearData() {
       this.ServiceStatusOpinionData = [];
@@ -181,7 +186,7 @@ export default {
           );
           this.charts.setOption({
             title: {
-              text: "实例监控",
+              text: "实例运行状况",
               subtext: "",
               left: "center",
             },
@@ -222,37 +227,13 @@ export default {
           // console.log('Error',error.message);
         });
     },
-    getServiceDetails(name){
-      this.addOrUpdateVisible = true     
+    getServiceDetails(name) {
+      this.addOrUpdateVisible = true;
       this.$nextTick(() => {
-        this.$refs.addOrUpdate.init(name);
+        this.$refs.addOrUpdate.init(name, this.value);
       });
     },
-    getServiceTable() {
-      var api =
-        "http://202.38.247.217:8080/api/v1/rest/svc/workspace/" +
-        this.value +
-        "/all";
-      console.log("getServiceTable", this.value);
-      Axios.get(api)
-        .then((res) => {
-          for (const key in res.data.data) {
-            this.tableData.push({
-              name: res.data.data[key]["name"],
-              cluster_ip: res.data.data[key]["cluster_ip"],
-              session_affinity: res.data.data[key]["session_affinity"],
-              status: res.data.data[key]["status"],
-              success: res.data.data[key]["success"],
-              fail: res.data.data[key]["fail"],
-              total: res.data.data[key]["total"],
-              success_lu: res.data.data[key]["success_lu"] + " %",
-            });
-          }
-        })
-        .catch((error) => {
-          // console.log('Error',error.message);
-        });
-    },
+
     getServiceChart() {
       var api =
         "http://202.38.247.217:8080/api/v1/rest/svc/workspace/" +
@@ -275,7 +256,7 @@ export default {
           );
           this.charts.setOption({
             title: {
-              text: "服务监控",
+              text: "运行状况监控",
               subtext: "",
               left: "center",
             },
@@ -330,6 +311,7 @@ export default {
               cluster_ip: res.data.data[key]["cluster_ip"],
               session_affinity: res.data.data[key]["session_affinity"],
               status: res.data.data[key]["status"],
+              runtime: res.data.data[key]["runtime"],
               success: res.data.data[key]["success"],
               fail: res.data.data[key]["fail"],
               total: res.data.data[key]["total"],
@@ -356,17 +338,13 @@ export default {
 </script>
 
 <style  scoped>
-.pie-wrap {
-  width: 50%;
-  height: 126px;
-}
-.bottom {
+/* .bottom {
   margin-top: 13px;
   line-height: 12px;
-}
+} */
 .float-div {
   float: left;
-  margin: 50px;
+  margin: 30px;
 }
 /deep/ .el-table .warning-row {
   background: #f7edef;

@@ -7,6 +7,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"net/http"
 	"strconv"
 	"t/back/entity"
@@ -271,6 +272,7 @@ type ServiceStatus struct {
 	Error     int `json:"error"`
 }
 
+// 工作空间下的全部服务
 func getServiceStatusForNamespace(c *gin.Context) {
 	namespace := c.Param("namespace")
 	client := utils.GetK8sClient()
@@ -333,9 +335,9 @@ func getOneServiceStatus(namespace, service_name string) int {
 		return 1
 	}
 	for _, pod := range podList.Items {
-		sc := getCondition(namespace, pod.Name)
-		if sc.ContainersReady == "True" && sc.Ready == "True" &&
-			sc.PodScheduled == "True" && sc.Initialized == "True" {
+		i, r, c, p := getCondition(namespace, pod.Name)
+		if i == true && r == true &&
+			c == true && p == true {
 			running_pod++
 		} else {
 			error_pod++
@@ -370,16 +372,16 @@ func getPodStatusForNamespace(c *gin.Context) {
 	}
 	ps := PodStatus{}
 	for _, v := range podList.Items {
-		if string(v.Status.Phase) == "Succeeded"{
-			ps.Succeeded ++
-		}else if string(v.Status.Phase) == "Running" {
-			ps.Running ++
-		}else if string(v.Status.Phase) == "Pending"{
-			ps.Pending ++
-		}else if string(v.Status.Phase) == "Failed"{
-			ps.Failed ++
-		}else{
-			ps.Unknown ++
+		if string(v.Status.Phase) == "Succeeded" {
+			ps.Succeeded++
+		} else if string(v.Status.Phase) == "Running" {
+			ps.Running++
+		} else if string(v.Status.Phase) == "Pending" {
+			ps.Pending++
+		} else if string(v.Status.Phase) == "Failed" {
+			ps.Failed++
+		} else {
+			ps.Unknown++
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -393,6 +395,22 @@ func getPodStatusForNamespace(c *gin.Context) {
 	//	Error:     0,
 	//}
 }
+
+type ServiceDetail struct {
+	Port          int32              `json:"port"`           //服务端口
+	ContainerPort intstr.IntOrString `json:"container_port"` //容器端口
+	Protocol      string             `json:"protocol"`
+	Pods          []entity.Pod       `json:"pods"` //实例列表
+	Total         int                `json:"total"`
+	Success       int                `json:"success"`
+	Fail          int                `json:"fail"`
+	Runtime       int                `json:"runtime"`
+	Selector      map[string]string  `json:"selector"`
+	Annotations   map[string]string  `json:"annotations"`
+	Type          string             `json:"type"`
+	ClusterIP     string             `json:"cluster_ip"`
+}
+
 // 通过服务名 获取服务的详细信息--->pod details
 func getServiceDetail(c *gin.Context) {
 	namespace := c.Param("namespace")
@@ -401,6 +419,32 @@ func getServiceDetail(c *gin.Context) {
 	if client == nil {
 		fmt.Println("client is nil")
 		return
+	}
+	service, err := client.CoreV1().Services(namespace).Get(context.TODO(), service_name, metav1.GetOptions{})
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "查询服务失败",
+			"data":    err.Error(),
+		})
+		return
+	}
+	if service == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "查询服务失败",
+			"data":    "未查到服务信息",
+		})
+		return
+	}
+
+	res := ServiceDetail{
+		Port:          service.Spec.Ports[0].Port,
+		ContainerPort: service.Spec.Ports[0].TargetPort,
+		Runtime:       int(time.Now().Sub(service.CreationTimestamp.Time).Hours()),
+		Protocol:      string(service.Spec.Ports[0].Protocol),
+		Selector:      service.Spec.Selector,
+		Type:          string(service.Spec.Type),
+		Annotations:   service.Annotations,
+		ClusterIP:     service.Spec.ClusterIP,
 	}
 	//查询所有的Pod
 	podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + service_name})
@@ -412,19 +456,38 @@ func getServiceDetail(c *gin.Context) {
 		return
 	}
 	podItems := make([]entity.Pod, 0)
+	running := 0
+	all := len(podList.Items)
 	for _, pod := range podList.Items {
+		i, r, c, p := getCondition(namespace, pod.Name)
 		ppd := entity.Pod{
-			Name:              pod.Name,
-			ServiceConditions: getCondition(namespace, pod.Name),
-			Image:             pod.Spec.Containers[0].Image,
+			Name:            pod.Name,
+			Initialized:     i,
+			ContainersReady: c,
+			PodScheduled:    p,
+			Ready:           r,
+			Image:           pod.Spec.Containers[0].Image,
+			HostIP:          pod.Status.HostIP,
+			PodIP:           pod.Status.PodIP,
+		}
+		if ppd.ContainersReady == true && ppd.Ready == true &&
+			ppd.PodScheduled == true && ppd.Initialized == true {
+			running++
 		}
 		podItems = append(podItems, ppd)
 	}
+	if all == 0 {
+		res.Total, res.Success, res.Fail = 0, 0, 0
+	} else {
+		res.Total, res.Success, res.Fail = all, running, all-running
+	}
+	res.Pods = podItems
 	c.JSON(http.StatusOK, gin.H{
 		"message": "查询服务失败",
-		"data":    podItems,
+		"data":    res,
 	})
 }
+
 // 获取所有服务，包括获取服务下的实例
 func getAllService(c *gin.Context) {
 	namespace := c.Param("namespace")
@@ -447,6 +510,7 @@ func getAllService(c *gin.Context) {
 		s := entity.Service{
 			Name:      v.Name,
 			ClusterIP: v.Spec.ClusterIP,
+			Runtime:   int(time.Now().Sub(v.CreationTimestamp.Time).Hours()),
 		}
 		if string(v.Spec.SessionAffinity) == "None" {
 			s.SessionAffinity = "false"
@@ -459,14 +523,18 @@ func getAllService(c *gin.Context) {
 		running := 0
 		all := len(podList.Items)
 		for _, pod := range podList.Items {
+			i, r, c, p := getCondition(namespace, pod.Name)
 			ppd := entity.Pod{
-				Name:              pod.Name,
+				Name: pod.Name,
 				//ServiceName:       v.Name,
-				ServiceConditions: getCondition(namespace, pod.Name),
-				Image:             pod.Spec.Containers[0].Image,
+				Initialized:     i,
+				Ready:           r,
+				ContainersReady: c,
+				PodScheduled:    p,
+				Image:           pod.Spec.Containers[0].Image,
 			}
-			if ppd.ServiceConditions.ContainersReady == "True" && ppd.ServiceConditions.Ready == "True" &&
-				ppd.ServiceConditions.PodScheduled == "True" && ppd.ServiceConditions.Initialized == "True" {
+			if ppd.ContainersReady == true && ppd.Ready == true &&
+				ppd.PodScheduled == true && ppd.Initialized == true {
 				running++
 			}
 			podItems = append(podItems, ppd)
@@ -489,7 +557,7 @@ func getAllService(c *gin.Context) {
 	})
 }
 func judgeSvcStatus(all, running int) string {
-	if all == 0{
+	if all == 0 {
 		return "ERROR"
 	}
 	if running == all {
@@ -503,51 +571,52 @@ func judgeSvcStatus(all, running int) string {
 func getService(c *gin.Context) {
 
 }
-func getCondition(namespace, svcName string) (sc entity.ServiceConditions) {
+func getCondition(namespace, svcName string) (bool, bool, bool, bool) {
 	client := utils.GetK8sClient()
 	if client == nil {
 		fmt.Println("client is nil")
-		return sc
+		return false, false, false, false
 	}
 	myPod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), svcName, metav1.GetOptions{})
+	i, r, c, p := false, false, false, false
 	if err != nil {
-		return sc
+		return false, false, false, false
 	}
 	for _, v := range myPod.Status.Conditions {
 		if v.Type == "Initialized" {
 			if v.Status == "True" {
-				sc.Initialized = "True"
+				i = true
 			} else {
-				sc.Initialized = "False"
+				i = false
 			}
 			continue
 		}
 		if v.Type == "ContainersReady" {
 			if v.Status == "True" {
-				sc.ContainersReady = "True"
+				c = true
 			} else {
-				sc.ContainersReady = "False"
+				c = false
 			}
 			continue
 		}
 		if v.Type == "Ready" {
 			if v.Status == "True" {
-				sc.Ready = "True"
+				r = true
 			} else {
-				sc.Ready = "False"
+				r = false
 			}
 			continue
 		}
 		if v.Type == "PodScheduled" {
 			if v.Status == "True" {
-				sc.PodScheduled = "True"
+				p = true
 			} else {
-				sc.PodScheduled = "False"
+				p = false
 			}
 			continue
 		}
 	}
-	return sc
+	return i, r, c, p
 }
 
 func int32Ptr(i int32) *int32 { return &i }

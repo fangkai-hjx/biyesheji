@@ -9,19 +9,20 @@ type Service struct {
 	Fail            int     `json:"fail"`
 	Total           int     `json:"total"`
 	SuccessLu       float64 `json:"success_lu"`
+	Runtime         int     `json:"runtime"`
 	Pod             []Pod   `json:"pod"`
 }
-type ServiceConditions struct {
-	Initialized     string `json:"initialized"`
-	Ready           string `json:"ready"`
-	ContainersReady string `json:"containersReady"`
-	PodScheduled    string `json:"podScheduled"`
-}
+
 type Pod struct {
-	Name              string            `json:"name"`
+	Name string `json:"name"`
 	//ServiceName       string            `json:"service_name"`
-	ServiceConditions ServiceConditions `json:"service_conditions"`
-	Image             string            `json:"image"`
+	Initialized     bool   `json:"initialized"`
+	Ready           bool   `json:"ready"`
+	ContainersReady bool   `json:"containersReady"`
+	PodScheduled    bool   `json:"podScheduled"`
+	Image           string `json:"image"`
+	HostIP          string `json:"host_ip"`
+	PodIP           string `json:"pod_ip"`
 }
 type Image struct {
 	ImageName    string `json:"image_name"`
