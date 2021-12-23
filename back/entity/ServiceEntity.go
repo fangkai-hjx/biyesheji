@@ -3,7 +3,7 @@ package entity
 type Service struct {
 	Name            string  `json:"name"`
 	ClusterIP       string  `json:"cluster_ip"`
-	SessionAffinity string  `json:"session_affinity"`
+	SessionAffinity bool  `json:"session_affinity"`
 	Status          string  `json:"status"`
 	Success         int     `json:"success"`
 	Fail            int     `json:"fail"`

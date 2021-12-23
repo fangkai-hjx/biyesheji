@@ -7,6 +7,7 @@ import ServicePublish from '../views/servicePublish/ServicePublish.vue'
 import ConfigCenter from '../views/servicePublish/ConfigCenter.vue'
 import ServiceManager from '../views/serviceManager/ServiceManager.vue'
 import Test from '../views/admin/Manager.vue'
+import ServiceTrace from '../views/serviceManager/ServiceTrace.vue'
 Vue.use(VueRouter)
 
 const routes = [
@@ -25,7 +26,7 @@ const routes = [
     hidden: true
   },
   {
-    path: '/home',
+    path: '/',
     name: '服务发布',
     component: Home,
     children:[
@@ -52,11 +53,15 @@ const routes = [
     ]
   },
   {
-    path:'',
+    path:'/',
     name:'服务治理',
-    component: ServiceManager,
+    component: Home,
     children:[
-      
+      {
+        path:'/trace',
+        name: '服务链路追踪',
+        component: ServiceTrace
+      },
     ]
   },
   {

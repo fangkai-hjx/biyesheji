@@ -48,7 +48,7 @@
         <el-tag size="small">{{ Selector }}</el-tag>
       </el-descriptions-item>
       <el-descriptions-item label="注解">
-        <el-tag size="small">{{ Annotations }}</el-tag>
+        <el-tag size="small">ttt</el-tag>
       </el-descriptions-item>
     </el-descriptions>
     <el-table :data="tableData" border width="100%">
@@ -139,6 +139,7 @@
 
 <script>
 import Axios from "axios";
+import global from '../common.vue'
 export default {
   data() {
     return {

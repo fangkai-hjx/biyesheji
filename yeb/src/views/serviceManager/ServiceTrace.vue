@@ -1,0 +1,56 @@
+<template>
+  <div>
+    <div>
+      <iframe
+        src="http://116.56.140.62:8080/trace"
+        id="mobsf"
+        scrolling="no"
+        frameborder="0"
+        style="position: absolute; top: 60px; left: 200px"
+      >
+      </iframe>
+    </div>
+    <div
+      id="mmp"
+      style="
+        background: white;
+        height: 42px;
+        top: 60px;
+        left: 200px;
+        position: absolute;
+      "
+    >
+    </div>
+  </div>
+</template> 
+  
+<script>
+export default {
+  data() {
+    return {};
+  },
+  mounted() {
+    /**
+     * iframe-宽高自适应显示
+     */
+    function changeMobsfIframe() {
+      const mobsf = document.getElementById("mobsf");
+      const deviceWidth = document.body.clientWidth;
+      const deviceHeight = document.body.clientHeight;
+      mobsf.style.width = Number(deviceWidth) - 200 + "px"; //数字是页面布局宽度差值
+      mobsf.style.height = Number(deviceHeight) + 170 + "px"; //数字是页面布局高度差
+      // 盖布
+      const mmp = document.getElementById("mmp");
+      mmp.style.width = Number(deviceWidth) - 200 + "px";
+    }
+
+    changeMobsfIframe();
+
+    window.onresize = function () {
+      changeMobsfIframe();
+    };
+  },
+};
+</script>
+<style>
+</style>

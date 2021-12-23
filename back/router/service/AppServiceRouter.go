@@ -507,18 +507,21 @@ func getAllService(c *gin.Context) {
 
 	result := make([]entity.Service, 0)
 	for _, v := range serviceList.Items {
+		//查询所有的Pod
+		podList, _ := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + v.Name})
+		if len(podList.Items) == 0 {
+			continue
+		}
 		s := entity.Service{
 			Name:      v.Name,
 			ClusterIP: v.Spec.ClusterIP,
 			Runtime:   int(time.Now().Sub(v.CreationTimestamp.Time).Hours()),
 		}
 		if string(v.Spec.SessionAffinity) == "None" {
-			s.SessionAffinity = "false"
+			s.SessionAffinity = false
 		} else {
-			s.SessionAffinity = "true"
+			s.SessionAffinity = true
 		}
-		//查询所有的Pod
-		podList, _ := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + v.Name})
 		podItems := make([]entity.Pod, 0)
 		running := 0
 		all := len(podList.Items)

@@ -1,6 +1,6 @@
 <template>
  <div>
-  <iframe src="http://172.18.0.68:31234/trace" id="mobsf" scrolling="no" frameborder="0" style="position:absolute;"></iframe>
+  <iframe src="http://116.56.140.62:8080/trace" id="mobsf" scrolling="no" frameborder="0" style="position:absolute;top:60px;left:200px"></iframe>
  </div>
 </template> 
   
