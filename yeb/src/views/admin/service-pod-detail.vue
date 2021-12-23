@@ -183,7 +183,7 @@ export default {
     getServiceDetail() {
       this.clear();
       var api =
-        "http://202.38.247.217:8080/api/v1/rest/svc/workspace/" +
+        global.httpUrl+"/api/v1/rest/svc/workspace/" +
         this.ns +
         "/" +
         this.svc +

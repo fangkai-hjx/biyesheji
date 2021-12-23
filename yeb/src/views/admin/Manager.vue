@@ -93,6 +93,7 @@
 
 <script>
 import Axios from "axios";
+import global from '../common.vue'
 import AddOrUpdate from "./service-pod-detail.vue";
 export default {
   components: { AddOrUpdate },
@@ -149,7 +150,7 @@ export default {
 
     // 下拉选项 加载 命名空间
     getSelectData() {
-      var api = "http://202.38.247.217:8080/api/v1/rest/ns/workspace/all";
+      var api = global.httpUrl+"/api/v1/rest/ns/workspace/all";
       // 根据下拉框加载工作空间的数据
       Axios.get(api)
         .then((res) => {
@@ -166,7 +167,7 @@ export default {
     },
     getPodChart() {
       var api =
-        "http://202.38.247.217:8080/api/v1/rest/svc/workspace/" +
+        global.httpUrl+"/api/v1/rest/svc/workspace/" +
         this.value +
         "/pod/status";
       Axios.get(api)
@@ -236,7 +237,7 @@ export default {
 
     getServiceChart() {
       var api =
-        "http://202.38.247.217:8080/api/v1/rest/svc/workspace/" +
+        global.httpUrl+"/api/v1/rest/svc/workspace/" +
         this.value +
         "/svc/status";
       Axios.get(api)
@@ -299,7 +300,7 @@ export default {
     },
     getServiceTable() {
       var api =
-        "http://202.38.247.217:8080/api/v1/rest/svc/workspace/" +
+        global.httpUrl+"/api/v1/rest/svc/workspace/" +
         this.value +
         "/all";
       console.log("getServiceTable", this.value);

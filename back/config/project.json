@@ -7,7 +7,7 @@
   "harbor_username": "root",
   "harbor_password": "Harbor12345",
 
-  "k8s_evn": "k8s-config",
+
 
   "driver_name": "mysql",
   "user_name": "root",
